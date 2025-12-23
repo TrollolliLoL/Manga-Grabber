@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MangaGrabber</title>
+
+    <!-- Typographie Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div class="popup-container">
+
+        <!-- Header avec Badge et LED de statut -->
+        <header class="header">
+            <div class="header-brand">
+                <img src="asset/icon32.png" alt="Logo" class="header-logo">
+                <span class="header-title">MangaGrabber</span>
+            </div>
+            <div class="status-indicator" id="statusLed" title="État: Prêt">
+                <span class="led led-idle"></span>
+                <span class="status-text">Prêt</span>
+            </div>
+        </header>
+
+        <!-- Zone de contrôle -->
+        <section class="control-center">
+            <button class="btn btn-primary" id="startBtn" type="button">
+                <!-- Icône SVG Scan -->
+                <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                    <line x1="7" y1="12" x2="17" y2="12" />
+                </svg>
+                <span>Lancer la capture</span>
+            </button>
+        </section>
+
+        <!-- Console de logs (style tech) -->
+        <section class="console-wrapper">
+            <!-- Progress bar fine -->
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+            </div>
+
+            <!-- Zone de logs -->
+            <div class="console" id="console">
+                <div class="console-line">
+                    <span class="console-tag">[INFO]</span>
+                    <span class="console-msg">Prêt. Ouvrez un chapitre manga puis lancez la capture.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer discret -->
+        <footer class="footer">
+            <span class="footer-text">v1.0.0 • MangaGrabber</span>
+        </footer>
+
+    </div>
+
+    <!-- JavaScript externe (Manifest V3 compliant) -->
+    <script src="popup.js"></script>
+</body>
+
+</html>
