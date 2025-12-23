@@ -1,0 +1,55 @@
+# ===========================
+# MangaGrabber - .gitignore
+# Extension Chrome (Manifest V3)
+# ===========================
+
+# --- OS Generated ---
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- IDE / Editors ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# --- Node.js (si jamais utilisé) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# --- Build / Distribution ---
+dist/
+build/
+*.zip
+*.crx
+*.pem
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Backups ---
+*.bak
+*.backup
+*.old
+
+# --- Temp files ---
+*.tmp
+*.temp
+.cache/
+
+# --- Chrome Extension specific ---
+# Fichiers générés lors du packaging
+key.pem
