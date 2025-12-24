@@ -17,10 +17,11 @@ let captureState = {
 };
 
 const CONFIG = {
-    downloadDelayMs: 300,
+    batchSize: 10,          // Nombre d'images en parallèle
+    delayBetweenBatches: 50, // Délai entre chaque batch (ms)
     maxRetries: 3,
-    retryDelayMs: 1000,
-    baseFolder: 'MangaGrabber/library'  // Chemin vers library/
+    retryDelayMs: 500,
+    baseFolder: 'MangaGrabber/library'
 };
 
 // === Utilitaires ===
@@ -153,32 +154,51 @@ async function startCapture(tabId) {
             throw new Error('Aucune image trouvée');
         }
 
-        // 3. Télécharger les images
-        addLog('SCAN', 'Téléchargement en cours...');
+        // 3. Télécharger les images par batch
+        addLog('SCAN', `Téléchargement par batch de ${CONFIG.batchSize}...`);
 
-        for (let i = 0; i < captureState.urls.length; i++) {
-            captureState.currentIndex = i;
+        const total = captureState.urls.length;
 
-            const url = captureState.urls[i];
-            const ext = getExtension(url);
-            const num = String(i + 1).padStart(3, '0');
-            // Nouveau chemin : library/MangaName/ChapterXXX/001.webp
-            const filename = `${CONFIG.baseFolder}/${captureState.mangaName}/${captureState.chapterNum}/${num}.${ext}`;
+        // Traiter par batch
+        for (let batchStart = 0; batchStart < total; batchStart += CONFIG.batchSize) {
+            const batchEnd = Math.min(batchStart + CONFIG.batchSize, total);
+            const batchPromises = [];
 
-            const result = await downloadWithRetry(i, url, filename, i + 1, captureState.urls.length);
+            // Préparer les promesses pour ce batch
+            for (let i = batchStart; i < batchEnd; i++) {
+                const url = captureState.urls[i];
+                const ext = getExtension(url);
+                const num = String(i + 1).padStart(3, '0');
+                const filename = `${CONFIG.baseFolder}/${captureState.mangaName}/${captureState.chapterNum}/${num}.${ext}`;
 
-            if (result.success) {
-                captureState.successCount++;
-                addLog('OK', `Image ${i + 1}/${captureState.urls.length} ✓`);
-            } else {
-                addLog('ERROR', `Image ${i + 1} : ${result.error}`);
-                captureState.failedImages.push({ index: i, url, filename });
+                // Ajouter la promesse de téléchargement
+                batchPromises.push(
+                    downloadWithRetry(i, url, filename, i + 1, total)
+                        .then(result => ({ index: i, result, filename }))
+                );
             }
 
+            // Exécuter le batch en parallèle
+            const batchResults = await Promise.all(batchPromises);
+
+            // Traiter les résultats
+            for (const { index, result, filename } of batchResults) {
+                captureState.currentIndex = index;
+
+                if (result.success) {
+                    captureState.successCount++;
+                } else {
+                    captureState.failedImages.push({ index, url: captureState.urls[index], filename });
+                }
+            }
+
+            // Log du batch
+            addLog('OK', `Batch ${Math.floor(batchStart / CONFIG.batchSize) + 1}/${Math.ceil(total / CONFIG.batchSize)} ✓ (${batchEnd}/${total})`);
             notifyPopup();
 
-            if (i < captureState.urls.length - 1) {
-                await sleep(CONFIG.downloadDelayMs);
+            // Petit délai entre les batches
+            if (batchEnd < total) {
+                await sleep(CONFIG.delayBetweenBatches);
             }
         }
 
