@@ -8,7 +8,8 @@ let captureState = {
     isCapturing: false,
     tabId: null,
     urls: [],
-    chapterName: '',
+    mangaName: '',
+    chapterNum: '',
     currentIndex: 0,
     successCount: 0,
     failedImages: [],
@@ -19,7 +20,7 @@ const CONFIG = {
     downloadDelayMs: 300,
     maxRetries: 3,
     retryDelayMs: 1000,
-    baseFolder: 'MangaGrabber'
+    baseFolder: 'MangaGrabber/library'  // Chemin vers library/
 };
 
 // === Utilitaires ===
@@ -109,7 +110,8 @@ async function startCapture(tabId) {
         isCapturing: true,
         tabId: tabId,
         urls: [],
-        chapterName: '',
+        mangaName: '',
+        chapterNum: '',
         currentIndex: 0,
         successCount: 0,
         failedImages: [],
@@ -138,10 +140,12 @@ async function startCapture(tabId) {
         }
 
         captureState.urls = scanResult.urls;
-        captureState.chapterName = scanResult.chapterName;
+        captureState.mangaName = scanResult.mangaName;
+        captureState.chapterNum = scanResult.chapterNum;
 
         addLog('OK', `${scanResult.count} images détectées`);
-        addLog('INFO', `Dossier : ${scanResult.chapterName}`);
+        addLog('INFO', `Manga : ${scanResult.mangaName}`);
+        addLog('INFO', `Chapitre : ${scanResult.chapterNum}`);
         notifyPopup();
 
         if (scanResult.count === 0) {
@@ -157,7 +161,8 @@ async function startCapture(tabId) {
             const url = captureState.urls[i];
             const ext = getExtension(url);
             const num = String(i + 1).padStart(3, '0');
-            const filename = `${CONFIG.baseFolder}/${captureState.chapterName}/${num}.${ext}`;
+            // Nouveau chemin : library/MangaName/ChapterXXX/001.webp
+            const filename = `${CONFIG.baseFolder}/${captureState.mangaName}/${captureState.chapterNum}/${num}.${ext}`;
 
             const result = await downloadWithRetry(url, filename, i + 1, captureState.urls.length);
 

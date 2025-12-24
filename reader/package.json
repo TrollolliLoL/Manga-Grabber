@@ -1,0 +1,37 @@
+{
+    "name": "mangagrabber-reader",
+    "version": "1.0.0",
+    "description": "Liseuse manga style webtoon pour MangaGrabber",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "build": "electron-builder"
+    },
+    "author": "TrollolliLoL",
+    "license": "MIT",
+    "devDependencies": {
+        "electron": "^28.0.0",
+        "electron-builder": "^24.9.1"
+    },
+    "build": {
+        "appId": "com.mangagrabber.reader",
+        "productName": "MangaGrabber Reader",
+        "directories": {
+            "output": "dist"
+        },
+        "win": {
+            "target": "portable",
+            "icon": "../extension/asset/icon128.png"
+        },
+        "files": [
+            "**/*",
+            "!node_modules/.cache"
+        ],
+        "extraResources": [
+            {
+                "from": "../library",
+                "to": "library"
+            }
+        ]
+    }
+}

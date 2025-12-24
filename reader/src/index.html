@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' file:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
+    <title>MangaGrabber Reader</title>
+
+    <!-- Typographie -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Vue Bibliothèque -->
+        <div id="library-view" class="view active">
+            <header class="header">
+                <h1 class="header-title">📚 Ma Bibliothèque</h1>
+                <div class="header-actions">
+                    <span class="header-count" id="mangaCount">0 manga(s)</span>
+                    <button class="btn-settings" id="settingsBtn" title="Paramètres">⚙️</button>
+                </div>
+            </header>
+
+            <!-- Barre de chemin -->
+            <div class="path-bar" id="pathBar">
+                <span class="path-label">📁</span>
+                <span class="path-text" id="libraryPath">Chargement...</span>
+                <button class="btn-change-path" id="changePathBtn">Changer</button>
+            </div>
+
+            <main class="grid" id="mangaGrid">
+                <!-- Les cartes manga seront injectées ici -->
+            </main>
+
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon">📖</div>
+                <h2>Aucun manga</h2>
+                <p>Utilisez l'extension Chrome pour télécharger des chapitres.</p>
+                <button class="btn-primary" id="emptyChangePathBtn">Choisir un autre dossier</button>
+            </div>
+        </div>
+
+        <!-- Vue Chapitres -->
+        <div id="chapters-view" class="view">
+            <header class="header">
+                <button class="btn-back" id="backToLibrary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                    Retour
+                </button>
+                <h1 class="header-title" id="mangaTitle">Nom du Manga</h1>
+            </header>
+
+            <main class="chapter-list" id="chapterList">
+                <!-- Les chapitres seront injectés ici -->
+            </main>
+        </div>
+
+        <!-- Vue Lecteur -->
+        <div id="reader-view" class="view">
+            <header class="reader-header">
+                <button class="btn-back" id="backToChapters">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <span class="reader-title" id="readerTitle">Chapitre</span>
+                <div class="reader-nav">
+                    <button class="btn-nav" id="prevChapter" title="Chapitre précédent">◀</button>
+                    <button class="btn-nav" id="nextChapter" title="Chapitre suivant">▶</button>
+                </div>
+            </header>
+
+            <main class="reader-content" id="readerContent">
+                <!-- Les images seront injectées ici -->
+            </main>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

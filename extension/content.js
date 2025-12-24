@@ -126,14 +126,58 @@ function extractImageUrls() {
 }
 
 /**
- * Nom du chapitre depuis le titre
+ * Parse le titre de la page pour extraire le nom du manga et le numéro de chapitre
+ * @returns {{mangaName: string, chapterNum: string}}
  */
-function getChapterName() {
-    let title = document.title || 'Manga_Chapter';
+function parseTitle() {
+    let title = document.title || 'Unknown Manga';
+
+    // Nettoyer les caractères interdits
     const forbidden = /[<>:"/\\|?*]/g;
-    title = title.replace(forbidden, '').replace(/\s+/g, ' ').trim();
-    if (title.length > 100) title = title.substring(0, 100);
-    return title || 'Manga_Chapter';
+    title = title.replace(forbidden, '').trim();
+
+    // Patterns courants pour détecter le chapitre
+    // "Manga Name Chapter 123" ou "Manga Name Ch. 123" ou "Manga Name - Chapter 123"
+    const chapterPatterns = [
+        /(.+?)\s*[-–—]\s*[Cc]hapter\s*(\d+(?:\.\d+)?)/i,
+        /(.+?)\s*[Cc]hapter\s*(\d+(?:\.\d+)?)/i,
+        /(.+?)\s*[Cc]h\.?\s*(\d+(?:\.\d+)?)/i,
+        /(.+?)\s*[-–—]\s*[Ee]pisode\s*(\d+(?:\.\d+)?)/i,
+        /(.+?)\s*#(\d+(?:\.\d+)?)/,
+        /(.+?)\s*(\d+(?:\.\d+)?)\s*$/  // Numéro à la fin
+    ];
+
+    for (const pattern of chapterPatterns) {
+        const match = title.match(pattern);
+        if (match) {
+            let mangaName = match[1].trim();
+            let chapterNum = match[2];
+
+            // Nettoyer le nom du manga (enlever suffixes courants)
+            mangaName = mangaName
+                .replace(/\s*[-–—]\s*$/, '')
+                .replace(/\s+Read\s+Online.*$/i, '')
+                .replace(/\s+Manga.*$/i, '')
+                .trim();
+
+            // Formater le numéro de chapitre avec padding
+            const numFloat = parseFloat(chapterNum);
+            const formatted = Number.isInteger(numFloat)
+                ? String(Math.floor(numFloat)).padStart(3, '0')
+                : numFloat.toFixed(1).padStart(5, '0');
+
+            return {
+                mangaName: mangaName || 'Unknown Manga',
+                chapterNum: `Chapter ${formatted}`
+            };
+        }
+    }
+
+    // Fallback : utiliser le titre complet
+    return {
+        mangaName: title.substring(0, 50) || 'Unknown Manga',
+        chapterNum: 'Chapter 001'
+    };
 }
 
 /**
@@ -180,13 +224,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 console.log('[MangaGrabber] === SCAN START ===');
                 await turboScroll();
                 const urls = extractImageUrls();
-                const chapterName = getChapterName();
+                const { mangaName, chapterNum } = parseTitle();
+                console.log(`[MangaGrabber] Manga: ${mangaName}, Chapter: ${chapterNum}`);
                 console.log('[MangaGrabber] === SCAN END ===');
 
                 sendResponse({
                     success: true,
                     urls: urls,
-                    chapterName: chapterName,
+                    mangaName: mangaName,
+                    chapterNum: chapterNum,
                     count: urls.length
                 });
             } catch (error) {
