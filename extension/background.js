@@ -66,27 +66,38 @@ function downloadDataUrl(dataUrl, filename) {
 
 /**
  * Télécharge une image avec retry (utilise Canvas en priorité)
+ * VERSION DEBUG avec timing
  */
 async function downloadWithRetry(index, url, filename, imageNum, total) {
     let lastError = '';
+    const startTotal = Date.now();
 
     for (let attempt = 1; attempt <= CONFIG.maxRetries; attempt++) {
         try {
-            // Utiliser captureImage (Canvas) en priorité
+            // Timing : envoi message au content script
+            const t1 = Date.now();
             const fetchResult = await chrome.tabs.sendMessage(captureState.tabId, {
                 action: 'captureImage',
                 index: index
             });
+            const t2 = Date.now();
 
             if (!fetchResult.success) {
                 throw new Error(fetchResult.error || 'Capture échouée');
             }
 
+            // Timing : téléchargement
+            const t3 = Date.now();
             await downloadDataUrl(fetchResult.dataUrl, filename);
+            const t4 = Date.now();
+
+            console.log(`[TIMER-BG] Image ${imageNum}: message=${t2 - t1}ms, download=${t4 - t3}ms, total=${t4 - startTotal}ms`);
+
             return { success: true };
 
         } catch (error) {
             lastError = error.message;
+            console.log(`[ERROR-BG] Image ${imageNum} attempt ${attempt}: ${error.message}`);
 
             if (attempt < CONFIG.maxRetries) {
                 addLog('RETRY', `Image ${imageNum}/${total} - Tentative ${attempt + 1}/${CONFIG.maxRetries}...`);

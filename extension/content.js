@@ -83,25 +83,37 @@ function findMangaImages() {
 
 /**
  * Capture une image via Canvas et retourne un Data URL
- * @param {HTMLImageElement} img 
- * @returns {Promise<{success: boolean, dataUrl?: string, error?: string}>}
+ * VERSION DEBUG avec timing
  */
-function captureImageViaCanvas(img) {
+function captureImageViaCanvas(img, index = 0) {
     return new Promise((resolve) => {
+        const startTime = performance.now();
+
         try {
+            // Étape 1 : Créer le canvas
+            const t1 = performance.now();
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
             canvas.height = img.naturalHeight;
 
+            // Étape 2 : Dessiner l'image
+            const t2 = performance.now();
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
 
-            // Essayer de récupérer les données (peut échouer si CORS tainted)
-            const dataUrl = canvas.toDataURL('image/webp', 0.95);
+            // Étape 3 : Convertir en Data URL
+            const t3 = performance.now();
+            const dataUrl = canvas.toDataURL('image/webp', 0.92);
+            const t4 = performance.now();
+
+            // Log timing détaillé
+            console.log(`[TIMER] Image ${index + 1} (${img.naturalWidth}×${img.naturalHeight}): ` +
+                `canvas=${(t2 - t1).toFixed(0)}ms, draw=${(t3 - t2).toFixed(0)}ms, ` +
+                `toDataURL=${(t4 - t3).toFixed(0)}ms, TOTAL=${(t4 - startTime).toFixed(0)}ms`);
 
             resolve({ success: true, dataUrl });
         } catch (error) {
-            // Canvas tainted par CORS - fallback sur fetch
+            console.error(`[ERROR] Canvas Image ${index + 1}: ${error.message}`);
             resolve({ success: false, error: 'CORS: ' + error.message, needsFetch: true });
         }
     });
@@ -221,7 +233,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
 
             // Essayer Canvas d'abord
-            let result = await captureImageViaCanvas(img);
+            let result = await captureImageViaCanvas(img, request.index);
 
             // Si Canvas échoue (CORS), fallback sur fetch
             if (!result.success && result.needsFetch) {
