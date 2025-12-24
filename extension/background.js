@@ -64,20 +64,21 @@ function downloadDataUrl(dataUrl, filename) {
 }
 
 /**
- * Télécharge une image avec retry
+ * Télécharge une image avec retry (utilise Canvas en priorité)
  */
-async function downloadWithRetry(url, filename, imageNum, total) {
+async function downloadWithRetry(index, url, filename, imageNum, total) {
     let lastError = '';
 
     for (let attempt = 1; attempt <= CONFIG.maxRetries; attempt++) {
         try {
+            // Utiliser captureImage (Canvas) en priorité
             const fetchResult = await chrome.tabs.sendMessage(captureState.tabId, {
-                action: 'fetchImage',
-                url: url
+                action: 'captureImage',
+                index: index
             });
 
             if (!fetchResult.success) {
-                throw new Error(fetchResult.error || 'Fetch échoué');
+                throw new Error(fetchResult.error || 'Capture échouée');
             }
 
             await downloadDataUrl(fetchResult.dataUrl, filename);
@@ -164,7 +165,7 @@ async function startCapture(tabId) {
             // Nouveau chemin : library/MangaName/ChapterXXX/001.webp
             const filename = `${CONFIG.baseFolder}/${captureState.mangaName}/${captureState.chapterNum}/${num}.${ext}`;
 
-            const result = await downloadWithRetry(url, filename, i + 1, captureState.urls.length);
+            const result = await downloadWithRetry(i, url, filename, i + 1, captureState.urls.length);
 
             if (result.success) {
                 captureState.successCount++;
