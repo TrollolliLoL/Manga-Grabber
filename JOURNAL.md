@@ -10,6 +10,8 @@
 ### ✅ Fonctionnalités Implémentées
 - [x] Structure projet Manifest V3
 - [x] Interface popup HTML/CSS (Sprint 1)
+- [x] Content script : turbo scroll + extraction images
+- [x] Popup script : injection, téléchargement, feedback UI
 
 ### 🏗️ Choix Techniques
 

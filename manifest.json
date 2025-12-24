@@ -19,12 +19,15 @@
     },
     "default_title": "MangaGrabber"
   },
+  "background": {
+    "service_worker": "background.js"
+  },
   "permissions": [
     "activeTab",
     "downloads",
     "scripting"
   ],
   "host_permissions": [
-    "*://*.natomanga.com/*"
+    "*://*/*"
   ]
 }
