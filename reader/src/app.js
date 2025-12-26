@@ -8,6 +8,7 @@ let currentManga = null;
 let currentChapter = null;
 let chapters = [];
 let currentChapterIndex = 0;
+let isScrapingInProgress = false;
 
 // === Éléments DOM ===
 const views = {
@@ -28,7 +29,12 @@ const elements = {
     nextChapter: document.getElementById('nextChapter'),
     libraryPath: document.getElementById('libraryPath'),
     changePathBtn: document.getElementById('changePathBtn'),
-    emptyChangePathBtn: document.getElementById('emptyChangePathBtn')
+    // Modal
+    downloadModal: document.getElementById('downloadModal'),
+    urlInput: document.getElementById('urlInput'),
+    modalStatus: document.getElementById('modalStatus'),
+    startDownload: document.getElementById('startDownload'),
+    cancelDownload: document.getElementById('cancelDownload')
 };
 
 // === Navigation entre vues ===
@@ -40,10 +46,9 @@ function showView(viewName) {
 // === Affichage du chemin ===
 async function updatePathDisplay() {
     const path = await window.api.getLibraryPath();
-    // Afficher seulement la fin du chemin pour ne pas surcharger
     const shortPath = path.length > 50 ? '...' + path.slice(-47) : path;
     elements.libraryPath.textContent = shortPath;
-    elements.libraryPath.title = path; // Chemin complet au survol
+    elements.libraryPath.title = path;
 }
 
 // === Changer le dossier library ===
@@ -54,6 +59,76 @@ async function changeLibraryPath() {
         await loadLibrary();
     }
 }
+
+// === Modal de téléchargement ===
+function openDownloadModal() {
+    elements.downloadModal.classList.add('active');
+    elements.urlInput.value = '';
+    elements.modalStatus.textContent = '';
+    elements.modalStatus.className = 'modal-status';
+    elements.startDownload.disabled = false;
+    elements.urlInput.focus();
+}
+
+function closeDownloadModal() {
+    if (!isScrapingInProgress) {
+        elements.downloadModal.classList.remove('active');
+    }
+}
+
+async function startScraping() {
+    const url = elements.urlInput.value.trim();
+
+    if (!url) {
+        elements.modalStatus.textContent = '❌ Veuillez entrer une URL';
+        elements.modalStatus.className = 'modal-status error';
+        return;
+    }
+
+    if (!url.startsWith('http')) {
+        elements.modalStatus.textContent = '❌ URL invalide';
+        elements.modalStatus.className = 'modal-status error';
+        return;
+    }
+
+    isScrapingInProgress = true;
+    elements.startDownload.disabled = true;
+    elements.cancelDownload.disabled = true;
+    elements.urlInput.disabled = true;
+    elements.modalStatus.textContent = '🚀 Démarrage du scraping...';
+    elements.modalStatus.className = 'modal-status';
+
+    try {
+        const result = await window.api.startScraping(url);
+
+        if (result.success) {
+            elements.modalStatus.textContent = `✅ Terminé ! ${result.imageCount} images téléchargées.`;
+            elements.modalStatus.className = 'modal-status success';
+
+            // Recharger la bibliothèque après succès
+            setTimeout(async () => {
+                closeDownloadModal();
+                await loadLibrary();
+            }, 2000);
+        } else {
+            elements.modalStatus.textContent = `❌ Erreur : ${result.error}`;
+            elements.modalStatus.className = 'modal-status error';
+        }
+    } catch (error) {
+        elements.modalStatus.textContent = `❌ Erreur : ${error.message}`;
+        elements.modalStatus.className = 'modal-status error';
+    } finally {
+        isScrapingInProgress = false;
+        elements.startDownload.disabled = false;
+        elements.cancelDownload.disabled = false;
+        elements.urlInput.disabled = false;
+    }
+}
+
+// Écouter les mises à jour de progrès
+window.api.onScrapingProgress((progress) => {
+    elements.modalStatus.textContent = progress.message;
+});
 
 // === Chargement de la bibliothèque ===
 async function loadLibrary() {
@@ -162,15 +237,29 @@ elements.prevChapter.addEventListener('click', goToPrevChapter);
 elements.nextChapter.addEventListener('click', goToNextChapter);
 
 elements.changePathBtn.addEventListener('click', changeLibraryPath);
-elements.emptyChangePathBtn.addEventListener('click', changeLibraryPath);
 
-// Raccourcis clavier
+// Boutons téléchargement
+document.getElementById('downloadBtn').addEventListener('click', openDownloadModal);
+document.getElementById('emptyDownloadBtn').addEventListener('click', openDownloadModal);
+elements.cancelDownload.addEventListener('click', closeDownloadModal);
+elements.startDownload.addEventListener('click', startScraping);
+
+// Fermer modal avec Escape
 document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && elements.downloadModal.classList.contains('active')) {
+        closeDownloadModal();
+    }
+
     if (views.reader.classList.contains('active')) {
         if (e.key === 'ArrowLeft') goToPrevChapter();
         if (e.key === 'ArrowRight') goToNextChapter();
         if (e.key === 'Escape') showView('chapters');
     }
+});
+
+// Enter pour valider le téléchargement
+elements.urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') startScraping();
 });
 
 // === Initialisation ===

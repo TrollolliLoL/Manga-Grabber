@@ -7,6 +7,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { scrapeChapter } = require('./scraper');
 
 // Chemin par défaut vers la library
 const DOWNLOADS_PATH = path.join(os.homedir(), 'Downloads');
@@ -154,6 +155,21 @@ ipcMain.handle('get-images', async (event, mangaName, chapterName) => {
     } catch (error) {
         console.error('Erreur lecture images:', error);
         return [];
+    }
+});
+
+// Lancer le scraping Puppeteer
+ipcMain.handle('start-scraping', async (event, url) => {
+    try {
+        const result = await scrapeChapter(url, currentLibraryPath, (progress) => {
+            // Envoyer le progrès à l'interface
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('scraping-progress', progress);
+            }
+        });
+        return result;
+    } catch (error) {
+        return { success: false, error: error.message };
     }
 });
 

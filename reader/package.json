@@ -33,5 +33,8 @@
                 "to": "library"
             }
         ]
+    },
+    "dependencies": {
+        "puppeteer": "^24.34.0"
     }
 }

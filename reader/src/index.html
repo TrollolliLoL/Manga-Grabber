@@ -23,8 +23,8 @@
             <header class="header">
                 <h1 class="header-title">📚 Ma Bibliothèque</h1>
                 <div class="header-actions">
+                    <button class="btn-download" id="downloadBtn" title="Télécharger par URL">⬇️ Télécharger</button>
                     <span class="header-count" id="mangaCount">0 manga(s)</span>
-                    <button class="btn-settings" id="settingsBtn" title="Paramètres">⚙️</button>
                 </div>
             </header>
 
@@ -42,8 +42,8 @@
             <div class="empty-state" id="emptyState">
                 <div class="empty-icon">📖</div>
                 <h2>Aucun manga</h2>
-                <p>Utilisez l'extension Chrome pour télécharger des chapitres.</p>
-                <button class="btn-primary" id="emptyChangePathBtn">Choisir un autre dossier</button>
+                <p>Cliquez sur "Télécharger" pour ajouter un chapitre.</p>
+                <button class="btn-primary" id="emptyDownloadBtn">⬇️ Télécharger par URL</button>
             </div>
         </div>
 
@@ -82,6 +82,20 @@
             <main class="reader-content" id="readerContent">
                 <!-- Les images seront injectées ici -->
             </main>
+        </div>
+
+        <!-- Modal de téléchargement -->
+        <div id="downloadModal" class="modal">
+            <div class="modal-content">
+                <h2>📥 Télécharger un chapitre</h2>
+                <p>Collez l'URL de la page du chapitre manga :</p>
+                <input type="text" id="urlInput" placeholder="https://..." class="input-url">
+                <div class="modal-status" id="modalStatus"></div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" id="cancelDownload">Annuler</button>
+                    <button class="btn-primary" id="startDownload">Télécharger</button>
+                </div>
+            </div>
         </div>
     </div>
 

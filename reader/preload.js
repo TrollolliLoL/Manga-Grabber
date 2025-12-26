@@ -13,5 +13,9 @@ contextBridge.exposeInMainWorld('api', {
     // Mangas
     getMangas: () => ipcRenderer.invoke('get-mangas'),
     getChapters: (mangaName) => ipcRenderer.invoke('get-chapters', mangaName),
-    getImages: (mangaName, chapterName) => ipcRenderer.invoke('get-images', mangaName, chapterName)
+    getImages: (mangaName, chapterName) => ipcRenderer.invoke('get-images', mangaName, chapterName),
+
+    // Scraping Puppeteer
+    startScraping: (url) => ipcRenderer.invoke('start-scraping', url),
+    onScrapingProgress: (callback) => ipcRenderer.on('scraping-progress', (event, data) => callback(data))
 });
