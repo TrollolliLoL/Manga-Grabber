@@ -86,14 +86,37 @@
 
         <!-- Modal de téléchargement -->
         <div id="downloadModal" class="modal">
-            <div class="modal-content">
-                <h2>📥 Télécharger un chapitre</h2>
-                <p>Collez l'URL de la page du chapitre manga :</p>
-                <input type="text" id="urlInput" placeholder="https://..." class="input-url">
+            <div class="modal-content modal-content-large">
+                <h2>📥 Télécharger des chapitres</h2>
+
+                <!-- Section URL -->
+                <div class="url-input-section">
+                    <input type="text" id="urlInput" placeholder="https://..." class="input-url">
+                    <div class="url-actions">
+                        <button id="addUrlBtn" class="btn-icon" title="Ajouter à la liste">➕</button>
+                        <button id="detectChaptersBtn" class="btn-secondary">🔎 Détecter les suivants</button>
+                    </div>
+                </div>
+
+                <!-- Liste des chapitres -->
+                <div class="chapter-queue" id="chapterQueue">
+                    <div class="queue-header">
+                        <span>📋 Chapitres à scraper</span>
+                        <label class="select-all-label">
+                            <input type="checkbox" id="selectAll"> Tout
+                        </label>
+                    </div>
+                    <div class="queue-list" id="queueList">
+                        <div class="queue-empty">Ajoutez des URLs ou utilisez la détection automatique</div>
+                    </div>
+                </div>
+
+                <!-- Status et actions -->
                 <div class="modal-status" id="modalStatus"></div>
                 <div class="modal-actions">
                     <button class="btn-secondary" id="cancelDownload">Annuler</button>
-                    <button class="btn-primary" id="startDownload">Télécharger</button>
+                    <button class="btn-primary" id="startDownload">📄 Scraper 1 chapitre</button>
+                    <button class="btn-primary btn-batch" id="startBatchDownload">🚀 Scraper la sélection</button>
                 </div>
             </div>
         </div>

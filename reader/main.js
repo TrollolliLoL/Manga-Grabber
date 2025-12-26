@@ -7,7 +7,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { scrapeChapter } = require('./scraper');
+const { scrapeChapter, detectNextChapters } = require('./scraper');
 
 // Chemin par défaut vers la library
 const DOWNLOADS_PATH = path.join(os.homedir(), 'Downloads');
@@ -171,6 +171,79 @@ ipcMain.handle('start-scraping', async (event, url) => {
     } catch (error) {
         return { success: false, error: error.message };
     }
+});
+
+// Détecter les chapitres suivants à partir d'une URL
+ipcMain.handle('detect-chapters', async (event, startUrl) => {
+    try {
+        const result = await detectNextChapters(startUrl, 50, (progress) => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('detect-progress', progress);
+            }
+        });
+        return result;
+    } catch (error) {
+        return { success: false, error: error.message, urls: [] };
+    }
+});
+
+// Scraper plusieurs chapitres en batch
+ipcMain.handle('scrape-batch', async (event, urls) => {
+    const results = [];
+    const total = urls.length;
+
+    for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+
+        // Envoyer le progrès global
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('batch-progress', {
+                status: 'scraping',
+                message: `Scraping ${i + 1}/${total}...`,
+                current: i + 1,
+                total: total,
+                url: url
+            });
+        }
+
+        try {
+            const result = await scrapeChapter(url, currentLibraryPath, (progress) => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('batch-progress', {
+                        ...progress,
+                        current: i + 1,
+                        total: total
+                    });
+                }
+            });
+            results.push({ url, ...result });
+        } catch (error) {
+            results.push({ url, success: false, error: error.message });
+        }
+
+        // Délai de 2 secondes entre chaque chapitre (anti-ban)
+        if (i < urls.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('batch-progress', {
+            status: 'done',
+            message: `Terminé ! ${successCount}/${total} chapitres téléchargés.`,
+            current: total,
+            total: total
+        });
+    }
+
+    return {
+        success: true,
+        results: results,
+        successCount: successCount,
+        totalCount: total
+    };
 });
 
 // === Fonctions utilitaires ===

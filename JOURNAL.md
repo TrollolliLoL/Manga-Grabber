@@ -55,6 +55,51 @@
 
 ---
 
+## 📅 26/12/2024 - Multi-Chapter Scraping
+
+### ✅ Fonctionnalités Implémentées
+- [x] Détection automatique des chapitres suivants via bouton "Next Chapter"
+- [x] Ajout manuel d'URLs à la queue
+- [x] Liste de chapitres avec checkboxes pour sélection
+- [x] Scraping en batch des chapitres sélectionnés
+- [x] Délai de 2 secondes entre chaque chapitre (anti-ban)
+
+### 🏗️ Choix Techniques
+
+#### 1. Détection des chapitres
+**Comment ?** Puppeteer navigue de page en page en cherchant le bouton "chapitre suivant".
+
+**Sélecteurs CSS utilisés (ordre de priorité) :**
+```javascript
+const NEXT_CHAPTER_SELECTORS = [
+    'a.next_page',
+    'a.navi-change-chapter-btn-next',
+    'a.next-chap',
+    'a.btn-next',
+    '.nav-next a',
+    '.next-chap a',
+    'a[rel="next"]',
+    '.rd_sd-button_item:last-child a'
+];
+```
+
+**Limite :** 50 chapitres max pour éviter les boucles infinies.
+
+#### 2. Scraping Batch
+- Chaque chapitre est scrapé séquentiellement (pas en parallèle)
+- Délai de 2 secondes entre chaque pour respecter les serveurs
+- Si un chapitre échoue, on continue avec les suivants
+- Rapport final : X/Y chapitres téléchargés
+
+#### 3. Nouveau Flow UX
+1. Entrer une URL de chapitre
+2. Option A : Ajouter manuellement (bouton ➕)
+3. Option B : Cliquer "Détecter les suivants" → remplit la liste
+4. Sélectionner/désélectionner les chapitres souhaités
+5. Cliquer "Scraper la sélection"
+
+---
+
 ## 🐛 Bugs Connus & Limitations
 
 | ID | Description | Statut | Workaround |

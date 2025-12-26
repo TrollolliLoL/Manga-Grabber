@@ -9,6 +9,7 @@ let currentChapter = null;
 let chapters = [];
 let currentChapterIndex = 0;
 let isScrapingInProgress = false;
+let chapterQueue = []; // URLs à scraper
 
 // === Éléments DOM ===
 const views = {
@@ -34,7 +35,13 @@ const elements = {
     urlInput: document.getElementById('urlInput'),
     modalStatus: document.getElementById('modalStatus'),
     startDownload: document.getElementById('startDownload'),
-    cancelDownload: document.getElementById('cancelDownload')
+    cancelDownload: document.getElementById('cancelDownload'),
+    // Nouveaux éléments modal
+    addUrlBtn: document.getElementById('addUrlBtn'),
+    detectChaptersBtn: document.getElementById('detectChaptersBtn'),
+    queueList: document.getElementById('queueList'),
+    selectAll: document.getElementById('selectAll'),
+    startBatchDownload: document.getElementById('startBatchDownload')
 };
 
 // === Navigation entre vues ===
@@ -68,6 +75,10 @@ function openDownloadModal() {
     elements.modalStatus.className = 'modal-status';
     elements.startDownload.disabled = false;
     elements.urlInput.focus();
+    // Réinitialiser la queue
+    chapterQueue = [];
+    renderQueue();
+    updateBatchButton();
 }
 
 function closeDownloadModal() {
@@ -127,6 +138,182 @@ async function startScraping() {
 
 // Écouter les mises à jour de progrès
 window.api.onScrapingProgress((progress) => {
+    elements.modalStatus.textContent = progress.message;
+});
+
+// === Gestion de la queue de chapitres ===
+
+function renderQueue() {
+    if (chapterQueue.length === 0) {
+        elements.queueList.innerHTML = '<div class="queue-empty">Ajoutez des URLs ou utilisez la détection automatique</div>';
+        elements.selectAll.checked = false;
+        return;
+    }
+
+    elements.queueList.innerHTML = chapterQueue.map((item, index) => `
+        <div class="queue-item" data-index="${index}">
+            <input type="checkbox" ${item.selected ? 'checked' : ''} data-index="${index}">
+            <span class="queue-item-num">#${index + 1}</span>
+            <span class="queue-item-url" title="${item.url}">${item.url}</span>
+            <button class="queue-item-remove" data-index="${index}">✕</button>
+        </div>
+    `).join('');
+
+    // Event listeners pour les checkboxes
+    elements.queueList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.index);
+            chapterQueue[idx].selected = e.target.checked;
+            updateBatchButton();
+            updateSelectAll();
+        });
+    });
+
+    // Event listeners pour les boutons de suppression
+    elements.queueList.querySelectorAll('.queue-item-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const idx = parseInt(e.target.dataset.index);
+            removeFromQueue(idx);
+        });
+    });
+}
+
+function addToQueue(url) {
+    if (!url || !url.startsWith('http')) return false;
+    if (chapterQueue.some(item => item.url === url)) return false; // Éviter les doublons
+
+    chapterQueue.push({ url, selected: true });
+    renderQueue();
+    updateBatchButton();
+    return true;
+}
+
+function removeFromQueue(index) {
+    chapterQueue.splice(index, 1);
+    renderQueue();
+    updateBatchButton();
+}
+
+function updateBatchButton() {
+    const selectedCount = chapterQueue.filter(item => item.selected).length;
+    elements.startBatchDownload.textContent = `🚀 Scraper la sélection (${selectedCount})`;
+    elements.startBatchDownload.disabled = selectedCount === 0 || isScrapingInProgress;
+}
+
+function updateSelectAll() {
+    const allSelected = chapterQueue.length > 0 && chapterQueue.every(item => item.selected);
+    elements.selectAll.checked = allSelected;
+}
+
+// Ajouter une URL manuellement
+function addUrlManually() {
+    const url = elements.urlInput.value.trim();
+    if (addToQueue(url)) {
+        elements.urlInput.value = '';
+        elements.modalStatus.textContent = '✅ URL ajoutée à la liste';
+        elements.modalStatus.className = 'modal-status success';
+    } else {
+        elements.modalStatus.textContent = '❌ URL invalide ou déjà dans la liste';
+        elements.modalStatus.className = 'modal-status error';
+    }
+}
+
+// Détecter les chapitres suivants
+async function detectChapters() {
+    const url = elements.urlInput.value.trim();
+
+    if (!url || !url.startsWith('http')) {
+        elements.modalStatus.textContent = '❌ Veuillez entrer une URL valide';
+        elements.modalStatus.className = 'modal-status error';
+        return;
+    }
+
+    isScrapingInProgress = true;
+    elements.detectChaptersBtn.disabled = true;
+    elements.addUrlBtn.disabled = true;
+    elements.modalStatus.textContent = '🔎 Détection des chapitres...';
+    elements.modalStatus.className = 'modal-status';
+
+    try {
+        const result = await window.api.detectChapters(url);
+
+        if (result.success && result.urls.length > 0) {
+            // Ajouter toutes les URLs détectées
+            result.urls.forEach(detectedUrl => addToQueue(detectedUrl));
+            elements.modalStatus.textContent = `✅ ${result.urls.length} chapitre(s) détecté(s)`;
+            elements.modalStatus.className = 'modal-status success';
+            elements.urlInput.value = '';
+        } else {
+            elements.modalStatus.textContent = '❌ Aucun chapitre suivant détecté';
+            elements.modalStatus.className = 'modal-status error';
+        }
+    } catch (error) {
+        elements.modalStatus.textContent = `❌ Erreur : ${error.message}`;
+        elements.modalStatus.className = 'modal-status error';
+    } finally {
+        isScrapingInProgress = false;
+        elements.detectChaptersBtn.disabled = false;
+        elements.addUrlBtn.disabled = false;
+        updateBatchButton();
+    }
+}
+
+// Écouter le progrès de détection
+window.api.onDetectProgress((progress) => {
+    elements.modalStatus.textContent = progress.message;
+});
+
+// Scraper tous les chapitres sélectionnés
+async function startBatchScraping() {
+    const selectedUrls = chapterQueue.filter(item => item.selected).map(item => item.url);
+
+    if (selectedUrls.length === 0) {
+        elements.modalStatus.textContent = '❌ Aucun chapitre sélectionné';
+        elements.modalStatus.className = 'modal-status error';
+        return;
+    }
+
+    isScrapingInProgress = true;
+    elements.startDownload.disabled = true;
+    elements.startBatchDownload.disabled = true;
+    elements.cancelDownload.disabled = true;
+    elements.detectChaptersBtn.disabled = true;
+    elements.addUrlBtn.disabled = true;
+    elements.urlInput.disabled = true;
+
+    try {
+        const result = await window.api.scrapeBatch(selectedUrls);
+
+        if (result.success) {
+            elements.modalStatus.textContent = `✅ Terminé ! ${result.successCount}/${result.totalCount} chapitres téléchargés.`;
+            elements.modalStatus.className = 'modal-status success';
+
+            // Recharger la bibliothèque après succès
+            setTimeout(async () => {
+                closeDownloadModal();
+                await loadLibrary();
+            }, 2000);
+        } else {
+            elements.modalStatus.textContent = `❌ Erreur lors du téléchargement`;
+            elements.modalStatus.className = 'modal-status error';
+        }
+    } catch (error) {
+        elements.modalStatus.textContent = `❌ Erreur : ${error.message}`;
+        elements.modalStatus.className = 'modal-status error';
+    } finally {
+        isScrapingInProgress = false;
+        elements.startDownload.disabled = false;
+        elements.startBatchDownload.disabled = false;
+        elements.cancelDownload.disabled = false;
+        elements.detectChaptersBtn.disabled = false;
+        elements.addUrlBtn.disabled = false;
+        elements.urlInput.disabled = false;
+        updateBatchButton();
+    }
+}
+
+// Écouter le progrès du batch
+window.api.onBatchProgress((progress) => {
     elements.modalStatus.textContent = progress.message;
 });
 
@@ -243,6 +430,16 @@ document.getElementById('downloadBtn').addEventListener('click', openDownloadMod
 document.getElementById('emptyDownloadBtn').addEventListener('click', openDownloadModal);
 elements.cancelDownload.addEventListener('click', closeDownloadModal);
 elements.startDownload.addEventListener('click', startScraping);
+
+// Boutons multi-chapitres
+elements.addUrlBtn.addEventListener('click', addUrlManually);
+elements.detectChaptersBtn.addEventListener('click', detectChapters);
+elements.startBatchDownload.addEventListener('click', startBatchScraping);
+elements.selectAll.addEventListener('change', (e) => {
+    chapterQueue.forEach(item => item.selected = e.target.checked);
+    renderQueue();
+    updateBatchButton();
+});
 
 // Fermer modal avec Escape
 document.addEventListener('keydown', (e) => {

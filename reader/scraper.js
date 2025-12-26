@@ -1,128 +1,158 @@
 /**
  * scraper.js - Module de scraping Puppeteer
- * Intercepte les images au niveau réseau pour contourner CORS
+ * Version améliorée : filtre par DOM + ordre correct
  */
 
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
-const https = require('https');
-const http = require('http');
+
+// Sélecteurs CSS pour trouver les images du reader (ordre de priorité)
+const READER_SELECTORS = [
+    '.container-chapter-reader img',
+    '.reading-content img',
+    '.chapter-content img',
+    '.page-break img',
+    '.wp-manga-chapter-img',
+    '.reader-area img',
+    '#content img',
+    'img.wp-manga-chapter-img'
+];
+
+// Sélecteurs CSS pour le bouton "chapitre suivant"
+const NEXT_CHAPTER_SELECTORS = [
+    'a.next_page',
+    'a.navi-change-chapter-btn-next',
+    'a.next-chap',
+    'a.btn-next',
+    '.nav-next a',
+    '.next-chap a',
+    'a[rel="next"]',
+    '.rd_sd-button_item:last-child a'
+];
 
 /**
  * Scrape un chapitre manga depuis une URL
- * @param {string} url - URL de la page du chapitre
- * @param {string} libraryPath - Chemin vers la library
- * @param {function} onProgress - Callback pour le progrès
- * @returns {Promise<{success: boolean, imageCount: number, mangaName: string, chapterNum: string}>}
  */
 async function scrapeChapter(url, libraryPath, onProgress = () => { }) {
     let browser = null;
-    const capturedImages = new Map(); // URL -> {buffer, index}
-    let imageIndex = 0;
+    const capturedImages = new Map(); // URL -> buffer
 
     try {
         onProgress({ status: 'launching', message: 'Lancement du navigateur...' });
 
-        // Lancer le navigateur en mode headless
         browser = await puppeteer.launch({
             headless: 'new',
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins,site-per-process'
+                '--disable-web-security'
             ]
         });
 
         const page = await browser.newPage();
 
-        // User-Agent réaliste
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
-        // Viewport large pour charger toutes les images
         await page.setViewport({ width: 1920, height: 1080 });
 
         // Intercepter les réponses réseau pour capturer les images
         page.on('response', async (response) => {
-            const url = response.url();
+            const responseUrl = response.url();
             const contentType = response.headers()['content-type'] || '';
 
-            // Filtrer les images (pas les icônes, logos, etc.)
-            if (contentType.includes('image/') && !url.includes('logo') && !url.includes('icon') && !url.includes('avatar')) {
+            if (contentType.includes('image/')) {
                 try {
                     const buffer = await response.buffer();
-
-                    // Ignorer les petites images (icônes, etc.)
-                    if (buffer.length > 10000) { // > 10KB
-                        capturedImages.set(url, {
+                    if (buffer.length > 5000) { // > 5KB
+                        capturedImages.set(responseUrl, {
                             buffer: buffer,
-                            index: imageIndex++,
                             contentType: contentType
-                        });
-                        onProgress({
-                            status: 'capturing',
-                            message: `Image ${imageIndex} capturée...`,
-                            count: imageIndex
                         });
                     }
                 } catch (e) {
-                    // Ignorer les erreurs de buffer (certaines images peuvent être en streaming)
+                    // Ignorer les erreurs de buffer
                 }
             }
         });
 
         onProgress({ status: 'loading', message: 'Chargement de la page...' });
 
-        // Aller sur la page
         await page.goto(url, {
             waitUntil: 'networkidle2',
             timeout: 60000
         });
 
-        // Récupérer le titre pour le nom du manga/chapitre
+        // Récupérer le titre
         const pageTitle = await page.title();
         const { mangaName, chapterNum } = parseTitle(pageTitle);
 
         onProgress({ status: 'scrolling', message: 'Scroll de la page...' });
 
-        // Scroll lent pour déclencher le lazy loading
-        await autoScroll(page, onProgress);
+        await autoScroll(page);
 
-        // Attendre un peu que les dernières images se chargent
+        // Attendre que les dernières images se chargent
         await new Promise(resolve => setTimeout(resolve, 3000));
 
-        onProgress({ status: 'saving', message: `Sauvegarde de ${capturedImages.size} images...` });
+        onProgress({ status: 'analyzing', message: 'Analyse du reader...' });
 
-        // Créer le dossier de destination
+        // Récupérer les URLs des images du reader dans l'ordre du DOM
+        const orderedUrls = await page.evaluate((selectors) => {
+            for (const selector of selectors) {
+                const imgs = document.querySelectorAll(selector);
+                if (imgs.length >= 3) {
+                    return Array.from(imgs)
+                        .map(img => img.src || img.dataset.src || img.dataset.lazySrc)
+                        .filter(src => src && src.startsWith('http'));
+                }
+            }
+
+            // Fallback : grandes images
+            return Array.from(document.querySelectorAll('img'))
+                .filter(img => img.naturalWidth > 300 && img.naturalHeight > 300)
+                .filter(img => {
+                    const src = img.src || '';
+                    return !src.includes('logo') && !src.includes('icon') &&
+                        !src.includes('avatar') && !src.includes('banner') &&
+                        !src.includes('/ad');
+                })
+                .map(img => img.src)
+                .filter(Boolean);
+        }, READER_SELECTORS);
+
+        onProgress({ status: 'saving', message: `${orderedUrls.length} images du manga trouvées...` });
+
+        // Créer le dossier
         const chapterPath = path.join(libraryPath, mangaName, chapterNum);
         fs.mkdirSync(chapterPath, { recursive: true });
 
-        // Sauvegarder les images dans l'ordre
-        const sortedImages = Array.from(capturedImages.entries())
-            .sort((a, b) => a[1].index - b[1].index);
+        // Sauvegarder dans l'ordre du DOM
+        let savedCount = 0;
+        for (let i = 0; i < orderedUrls.length; i++) {
+            const imgUrl = orderedUrls[i];
+            const imgData = capturedImages.get(imgUrl);
 
-        for (let i = 0; i < sortedImages.length; i++) {
-            const [imgUrl, imgData] = sortedImages[i];
-            const ext = getExtensionFromContentType(imgData.contentType);
-            const filename = String(i + 1).padStart(3, '0') + '.' + ext;
-            const filepath = path.join(chapterPath, filename);
+            if (imgData) {
+                const ext = getExtensionFromContentType(imgData.contentType);
+                const filename = String(i + 1).padStart(3, '0') + '.' + ext;
+                const filepath = path.join(chapterPath, filename);
 
-            fs.writeFileSync(filepath, imgData.buffer);
+                fs.writeFileSync(filepath, imgData.buffer);
+                savedCount++;
 
-            onProgress({
-                status: 'saving',
-                message: `Sauvegarde ${i + 1}/${sortedImages.length}...`,
-                current: i + 1,
-                total: sortedImages.length
-            });
+                onProgress({
+                    status: 'saving',
+                    message: `Sauvegarde ${savedCount}/${orderedUrls.length}...`,
+                    current: savedCount,
+                    total: orderedUrls.length
+                });
+            }
         }
 
         await browser.close();
 
         return {
             success: true,
-            imageCount: sortedImages.length,
+            imageCount: savedCount,
             mangaName: mangaName,
             chapterNum: chapterNum,
             path: chapterPath
@@ -134,10 +164,7 @@ async function scrapeChapter(url, libraryPath, onProgress = () => { }) {
     }
 }
 
-/**
- * Scroll automatique de la page
- */
-async function autoScroll(page, onProgress) {
+async function autoScroll(page) {
     await page.evaluate(async () => {
         await new Promise((resolve) => {
             let totalHeight = 0;
@@ -149,7 +176,6 @@ async function autoScroll(page, onProgress) {
 
                 if (totalHeight >= scrollHeight) {
                     clearInterval(timer);
-                    // Remonter en haut
                     window.scrollTo(0, 0);
                     resolve();
                 }
@@ -158,9 +184,6 @@ async function autoScroll(page, onProgress) {
     });
 }
 
-/**
- * Parse le titre de la page pour extraire manga/chapitre
- */
 function parseTitle(title) {
     const forbidden = /[<>:"/\\|?*]/g;
     title = (title || 'Unknown Manga').replace(forbidden, '').trim();
@@ -195,9 +218,6 @@ function parseTitle(title) {
     return { mangaName: title.substring(0, 50), chapterNum: 'Chapter 001' };
 }
 
-/**
- * Obtenir l'extension depuis le content-type
- */
 function getExtensionFromContentType(contentType) {
     if (contentType.includes('webp')) return 'webp';
     if (contentType.includes('png')) return 'png';
@@ -206,4 +226,94 @@ function getExtensionFromContentType(contentType) {
     return 'jpg';
 }
 
-module.exports = { scrapeChapter };
+/**
+ * Détecte les chapitres suivants à partir d'une URL de départ
+ * Navigue via le bouton "next chapter" jusqu'à la fin ou la limite
+ */
+async function detectNextChapters(startUrl, maxChapters = 50, onProgress = () => { }) {
+    let browser = null;
+    const detectedUrls = [startUrl];
+
+    try {
+        onProgress({ status: 'launching', message: 'Lancement du navigateur...' });
+
+        browser = await puppeteer.launch({
+            headless: 'new',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-web-security'
+            ]
+        });
+
+        const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+        let currentUrl = startUrl;
+        let chaptersFound = 1;
+
+        while (chaptersFound < maxChapters) {
+            onProgress({
+                status: 'detecting',
+                message: `Détection en cours... ${chaptersFound} chapitre(s) trouvé(s)`,
+                count: chaptersFound
+            });
+
+            await page.goto(currentUrl, {
+                waitUntil: 'domcontentloaded',
+                timeout: 30000
+            });
+
+            // Attendre un peu que la page se charge
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Chercher le bouton "next chapter"
+            const nextUrl = await page.evaluate((selectors) => {
+                for (const selector of selectors) {
+                    const link = document.querySelector(selector);
+                    if (link && link.href) {
+                        // Vérifier que ce n'est pas un lien vers la même page ou un lien invalide
+                        const href = link.href;
+                        if (href.startsWith('http') && href !== window.location.href) {
+                            return href;
+                        }
+                    }
+                }
+                return null;
+            }, NEXT_CHAPTER_SELECTORS);
+
+            if (!nextUrl || detectedUrls.includes(nextUrl)) {
+                // Pas de chapitre suivant ou déjà détecté (boucle)
+                break;
+            }
+
+            detectedUrls.push(nextUrl);
+            currentUrl = nextUrl;
+            chaptersFound++;
+
+            // Petit délai pour ne pas surcharger le serveur
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        await browser.close();
+
+        onProgress({
+            status: 'done',
+            message: `${detectedUrls.length} chapitre(s) détecté(s)`,
+            count: detectedUrls.length
+        });
+
+        return {
+            success: true,
+            urls: detectedUrls,
+            count: detectedUrls.length
+        };
+
+    } catch (error) {
+        if (browser) await browser.close();
+        throw error;
+    }
+}
+
+module.exports = { scrapeChapter, detectNextChapters };
+
