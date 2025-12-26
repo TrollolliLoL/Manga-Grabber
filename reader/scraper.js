@@ -21,14 +21,29 @@ const READER_SELECTORS = [
 
 // Sélecteurs CSS pour le bouton "chapitre suivant"
 const NEXT_CHAPTER_SELECTORS = [
+    // Sélecteurs spécifiques aux sites populaires
     'a.next_page',
     'a.navi-change-chapter-btn-next',
     'a.next-chap',
     'a.btn-next',
+    'a.next',
+    'a.ch-next-btn',
+    'a.next-chapter',
+    'a.nextch',
+    // Sélecteurs par classe parent
     '.nav-next a',
     '.next-chap a',
+    '.chapter-nav-next a',
+    '.nav-buttons .next a',
+    '.chapter-navigation .next a',
+    // Sélecteurs par attribut
     'a[rel="next"]',
-    '.rd_sd-button_item:last-child a'
+    'a[title*="Next"]',
+    'a[title*="Suivant"]',
+    // Sélecteurs génériques
+    '.rd_sd-button_item:last-child a',
+    '.btn-chapter-nav:last-child',
+    '.chapter-btn:last-child a'
 ];
 
 /**
@@ -227,12 +242,12 @@ function getExtensionFromContentType(contentType) {
 }
 
 /**
- * Détecte les chapitres suivants à partir d'une URL de départ
- * Navigue via le bouton "next chapter" jusqu'à la fin ou la limite
+ * Détecte les chapitres à partir d'une URL de départ
+ * Méthode 1: Extrait tous les chapitres depuis un <select> (rapide)
+ * Méthode 2: Navigue via le bouton "next chapter" (fallback)
  */
 async function detectNextChapters(startUrl, maxChapters = 50, onProgress = () => { }) {
     let browser = null;
-    const detectedUrls = [startUrl];
 
     try {
         onProgress({ status: 'launching', message: 'Lancement du navigateur...' });
@@ -249,41 +264,179 @@ async function detectNextChapters(startUrl, maxChapters = 50, onProgress = () =>
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
+        onProgress({ status: 'detecting', message: 'Chargement de la page...' });
+
+        await page.goto(startUrl, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // === MÉTHODE 1: Extraire depuis un <select> (sites comme MangaNato) ===
+        onProgress({ status: 'detecting', message: 'Recherche de la liste des chapitres...' });
+
+        const selectResult = await page.evaluate((currentUrl) => {
+            // Chercher un select avec les chapitres
+            const selectors = [
+                'select.navi-change-chapter',
+                'select.chapter-select',
+                'select#chapter-select',
+                'select[name="chapter"]',
+                '.chapter-selection select'
+            ];
+
+            for (const selector of selectors) {
+                const select = document.querySelector(selector);
+                if (select && select.options.length > 1) {
+                    const urls = [];
+                    let currentIndex = -1;
+
+                    for (let i = 0; i < select.options.length; i++) {
+                        const option = select.options[i];
+                        // L'URL peut être dans data-c, value, ou data-url
+                        const url = option.getAttribute('data-c') ||
+                            option.value ||
+                            option.getAttribute('data-url');
+
+                        if (url && url.startsWith('http')) {
+                            urls.push(url);
+                            // Trouver l'index du chapitre actuel
+                            if (url === currentUrl || currentUrl.includes(url) || url.includes(currentUrl.split('/').pop())) {
+                                currentIndex = urls.length - 1;
+                            }
+                        }
+                    }
+
+                    if (urls.length > 0) {
+                        console.log('[MangaGrabber] Found chapter select with', urls.length, 'chapters');
+                        console.log('[MangaGrabber] Current chapter index:', currentIndex);
+                        return {
+                            success: true,
+                            urls: urls,
+                            currentIndex: currentIndex,
+                            method: 'select'
+                        };
+                    }
+                }
+            }
+
+            return { success: false };
+        }, startUrl);
+
+        if (selectResult.success) {
+            await browser.close();
+
+            let chaptersToReturn = selectResult.urls;
+
+            // Si on a trouvé l'index actuel, on retourne seulement les chapitres suivants
+            // Note: Les chapitres sont souvent triés du plus récent au plus ancien dans le select
+            // Donc les "suivants" sont ceux AVANT dans la liste (index inférieur)
+            if (selectResult.currentIndex !== -1) {
+                // On garde le chapitre actuel + tous les suivants
+                // Comme le select est souvent inversé, on prend tout ce qui est après l'index actuel
+                chaptersToReturn = selectResult.urls.slice(selectResult.currentIndex);
+            }
+
+            // Limiter au max
+            chaptersToReturn = chaptersToReturn.slice(0, maxChapters);
+
+            onProgress({
+                status: 'done',
+                message: `${chaptersToReturn.length} chapitre(s) trouvé(s) (via liste)`,
+                count: chaptersToReturn.length
+            });
+
+            return {
+                success: true,
+                urls: chaptersToReturn,
+                count: chaptersToReturn.length,
+                method: 'select'
+            };
+        }
+
+        // === MÉTHODE 2: Navigation via "Next Chapter" (fallback) ===
+        onProgress({ status: 'detecting', message: 'Navigation page par page...' });
+
+        const detectedUrls = [startUrl];
         let currentUrl = startUrl;
         let chaptersFound = 1;
 
         while (chaptersFound < maxChapters) {
             onProgress({
                 status: 'detecting',
-                message: `Détection en cours... ${chaptersFound} chapitre(s) trouvé(s)`,
+                message: `Navigation... ${chaptersFound} chapitre(s) trouvé(s)`,
                 count: chaptersFound
             });
 
-            await page.goto(currentUrl, {
-                waitUntil: 'domcontentloaded',
-                timeout: 30000
-            });
+            if (currentUrl !== startUrl) {
+                await page.goto(currentUrl, {
+                    waitUntil: 'domcontentloaded',
+                    timeout: 30000
+                });
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
 
-            // Attendre un peu que la page se charge
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Chercher le bouton "next chapter"
+            // Chercher le bouton "NEXT chapter" (pas PREV!)
             const nextUrl = await page.evaluate((selectors) => {
-                for (const selector of selectors) {
-                    const link = document.querySelector(selector);
-                    if (link && link.href) {
-                        // Vérifier que ce n'est pas un lien vers la même page ou un lien invalide
-                        const href = link.href;
-                        if (href.startsWith('http') && href !== window.location.href) {
-                            return href;
+                // Sélecteurs spécifiques pour NEXT (pas prev)
+                const nextSpecificSelectors = [
+                    'a.navi-change-chapter-btn-next',
+                    'a.next_page',
+                    'a.btn-next',
+                    'a.next-chap',
+                    'a.next-chapter',
+                    '.chapter-nav a:last-child',
+                    'a[href*="chapter"]:has-text("next")'
+                ];
+
+                // D'abord les sélecteurs spécifiques
+                for (const selector of nextSpecificSelectors) {
+                    try {
+                        const link = document.querySelector(selector);
+                        if (link && link.href && link.href.startsWith('http') && link.href !== window.location.href) {
+                            const text = (link.textContent || '').toLowerCase();
+                            // Vérifier que ce n'est pas un bouton "prev"
+                            if (!text.includes('prev') && !text.includes('précédent') && !text.includes('previous')) {
+                                console.log('[MangaGrabber] Found NEXT via selector:', selector);
+                                return link.href;
+                            }
+                        }
+                    } catch (e) { }
+                }
+
+                // Chercher par texte "NEXT" explicitement
+                const allLinks = document.querySelectorAll('a');
+                for (const link of allLinks) {
+                    const text = (link.textContent || '').trim().toLowerCase();
+                    if ((text === 'next' || text === 'next chapter' || text.includes('next chap')) &&
+                        !text.includes('prev')) {
+                        if (link.href && link.href.startsWith('http') && link.href !== window.location.href) {
+                            console.log('[MangaGrabber] Found NEXT via text:', text);
+                            return link.href;
                         }
                     }
                 }
+
+                // Sélecteurs génériques (en vérifiant le texte)
+                for (const selector of selectors) {
+                    try {
+                        const links = document.querySelectorAll(selector);
+                        for (const link of links) {
+                            if (link && link.href && link.href.startsWith('http') && link.href !== window.location.href) {
+                                const text = (link.textContent || '').toLowerCase();
+                                if (!text.includes('prev') && !text.includes('précédent')) {
+                                    return link.href;
+                                }
+                            }
+                        }
+                    } catch (e) { }
+                }
+
                 return null;
             }, NEXT_CHAPTER_SELECTORS);
 
             if (!nextUrl || detectedUrls.includes(nextUrl)) {
-                // Pas de chapitre suivant ou déjà détecté (boucle)
                 break;
             }
 
@@ -291,7 +444,6 @@ async function detectNextChapters(startUrl, maxChapters = 50, onProgress = () =>
             currentUrl = nextUrl;
             chaptersFound++;
 
-            // Petit délai pour ne pas surcharger le serveur
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
@@ -306,7 +458,8 @@ async function detectNextChapters(startUrl, maxChapters = 50, onProgress = () =>
         return {
             success: true,
             urls: detectedUrls,
-            count: detectedUrls.length
+            count: detectedUrls.length,
+            method: 'navigation'
         };
 
     } catch (error) {
@@ -316,4 +469,3 @@ async function detectNextChapters(startUrl, maxChapters = 50, onProgress = () =>
 }
 
 module.exports = { scrapeChapter, detectNextChapters };
-
