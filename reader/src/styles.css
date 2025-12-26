@@ -646,3 +646,52 @@ body {
 .btn-batch:disabled {
     background: var(--accent-green);
 }
+
+/* === Statuts des chapitres === */
+.queue-item-status {
+    font-size: 14px;
+    flex-shrink: 0;
+    width: 20px;
+    text-align: center;
+}
+
+.queue-item.status-pending {
+    opacity: 1;
+}
+
+.queue-item.status-downloading {
+    background: rgba(59, 130, 246, 0.1);
+    border-left: 3px solid var(--accent-blue);
+}
+
+.queue-item.status-downloading .queue-item-status {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.queue-item.status-done {
+    background: rgba(16, 185, 129, 0.1);
+    border-left: 3px solid var(--accent-green);
+}
+
+.queue-item.status-done .queue-item-url {
+    color: var(--accent-green);
+}
+
+.queue-item.status-error {
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+}
+
+.queue-item.status-error .queue-item-url {
+    color: #ef4444;
+}

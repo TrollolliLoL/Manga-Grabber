@@ -143,6 +143,24 @@ window.api.onScrapingProgress((progress) => {
 
 // === Gestion de la queue de chapitres ===
 
+function getStatusIcon(status) {
+    switch (status) {
+        case 'downloading': return '🔄';
+        case 'done': return '✅';
+        case 'error': return '❌';
+        default: return '⏳';
+    }
+}
+
+function getStatusClass(status) {
+    switch (status) {
+        case 'downloading': return 'status-downloading';
+        case 'done': return 'status-done';
+        case 'error': return 'status-error';
+        default: return 'status-pending';
+    }
+}
+
 function renderQueue() {
     if (chapterQueue.length === 0) {
         elements.queueList.innerHTML = '<div class="queue-empty">Ajoutez des URLs ou utilisez la détection automatique</div>';
@@ -151,16 +169,17 @@ function renderQueue() {
     }
 
     elements.queueList.innerHTML = chapterQueue.map((item, index) => `
-        <div class="queue-item" data-index="${index}">
-            <input type="checkbox" ${item.selected ? 'checked' : ''} data-index="${index}">
+        <div class="queue-item ${getStatusClass(item.status)}" data-index="${index}">
+            <span class="queue-item-status">${getStatusIcon(item.status)}</span>
+            <input type="checkbox" ${item.selected ? 'checked' : ''} ${item.status === 'downloading' || item.status === 'done' ? 'disabled' : ''} data-index="${index}">
             <span class="queue-item-num">#${index + 1}</span>
             <span class="queue-item-url" title="${item.url}">${item.url}</span>
-            <button class="queue-item-remove" data-index="${index}">✕</button>
+            ${item.status !== 'downloading' && item.status !== 'done' ? `<button class="queue-item-remove" data-index="${index}">✕</button>` : ''}
         </div>
     `).join('');
 
     // Event listeners pour les checkboxes
-    elements.queueList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    elements.queueList.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
         cb.addEventListener('change', (e) => {
             const idx = parseInt(e.target.dataset.index);
             chapterQueue[idx].selected = e.target.checked;
@@ -182,7 +201,7 @@ function addToQueue(url) {
     if (!url || !url.startsWith('http')) return false;
     if (chapterQueue.some(item => item.url === url)) return false; // Éviter les doublons
 
-    chapterQueue.push({ url, selected: true });
+    chapterQueue.push({ url, selected: true, status: 'pending' });
     renderQueue();
     updateBatchButton();
     return true;
@@ -312,9 +331,30 @@ async function startBatchScraping() {
     }
 }
 
-// Écouter le progrès du batch
+// Écouter le progrès du batch et mettre à jour les statuts
 window.api.onBatchProgress((progress) => {
     elements.modalStatus.textContent = progress.message;
+
+    // Mettre à jour le statut du chapitre en cours
+    if (progress.url && progress.current) {
+        const chapterIndex = chapterQueue.findIndex(item => item.url === progress.url);
+        if (chapterIndex !== -1) {
+            if (progress.status === 'done') {
+                chapterQueue[chapterIndex].status = 'done';
+            } else if (progress.status === 'error') {
+                chapterQueue[chapterIndex].status = 'error';
+            } else {
+                chapterQueue[chapterIndex].status = 'downloading';
+            }
+            renderQueue();
+        }
+    }
+
+    // Quand tout est terminé
+    if (progress.status === 'done' && progress.current === progress.total) {
+        // Marquer les chapitres réussis/échoués
+        renderQueue();
+    }
 });
 
 // === Chargement de la bibliothèque ===

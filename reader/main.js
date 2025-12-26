@@ -195,10 +195,10 @@ ipcMain.handle('scrape-batch', async (event, urls) => {
     for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
 
-        // Envoyer le progrès global
+        // Envoyer le progrès global - chapitre en cours de téléchargement
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('batch-progress', {
-                status: 'scraping',
+                status: 'downloading',
                 message: `Scraping ${i + 1}/${total}...`,
                 current: i + 1,
                 total: total,
@@ -212,13 +212,36 @@ ipcMain.handle('scrape-batch', async (event, urls) => {
                     mainWindow.webContents.send('batch-progress', {
                         ...progress,
                         current: i + 1,
-                        total: total
+                        total: total,
+                        url: url
                     });
                 }
             });
             results.push({ url, ...result });
+
+            // Envoyer le statut "done" pour ce chapitre
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('batch-progress', {
+                    status: 'done',
+                    message: `✅ Chapitre ${i + 1}/${total} terminé`,
+                    current: i + 1,
+                    total: total,
+                    url: url
+                });
+            }
         } catch (error) {
             results.push({ url, success: false, error: error.message });
+
+            // Envoyer le statut "error" pour ce chapitre
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('batch-progress', {
+                    status: 'error',
+                    message: `❌ Erreur chapitre ${i + 1}: ${error.message}`,
+                    current: i + 1,
+                    total: total,
+                    url: url
+                });
+            }
         }
 
         // Délai de 2 secondes entre chaque chapitre (anti-ban)
