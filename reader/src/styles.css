@@ -1,28 +1,30 @@
 /* ============================================
    MangaGrabber Reader - Styles
-   Design: ShadUI Dark Mode
+   Design: Netflix Dark Mode
    ============================================ */
 
 :root {
-    /* Couleurs Zinc */
-    --bg-primary: #09090b;
-    --bg-secondary: #18181b;
-    --bg-card: #1c1c1f;
-    --bg-hover: #27272a;
-    --border: #27272a;
-    --border-hover: #3f3f46;
+    /* Couleurs Netflix Dark */
+    --bg-primary: #141414;
+    --bg-secondary: #1a1a1a;
+    --bg-card: #181818;
+    --bg-hover: #232323;
+    --border: #2a2a2a;
+    --border-hover: #404040;
 
     /* Texte */
-    --text-primary: #fafafa;
-    --text-secondary: #a1a1aa;
-    --text-muted: #71717a;
+    --text-primary: #ffffff;
+    --text-secondary: #b3b3b3;
+    --text-muted: #808080;
 
-    /* Accents */
+    /* Accents Netflix */
+    --accent-red: #e50914;
+    --accent-red-hover: #f40612;
     --accent-blue: #3b82f6;
-    --accent-green: #10b981;
+    --accent-green: #46d369;
 
     /* Typographie */
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-sans: 'Inter', 'Netflix Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
     /* Espacements */
     --spacing-xs: 4px;
@@ -31,11 +33,12 @@
     --spacing-lg: 16px;
     --spacing-xl: 24px;
     --spacing-2xl: 32px;
+    --spacing-3xl: 48px;
 
     /* Bordures */
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
 }
 
 * {
@@ -69,32 +72,48 @@ body {
     display: flex;
 }
 
-/* === Header === */
+/* === Header Netflix === */
 .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-lg) var(--spacing-xl);
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-secondary);
+    padding: var(--spacing-md) var(--spacing-3xl);
+    background: linear-gradient(180deg, rgba(20, 20, 20, 1) 0%, rgba(20, 20, 20, 0.9) 100%);
+    border-bottom: none;
     flex-shrink: 0;
+    position: relative;
+    z-index: 10;
 }
 
 .header-title {
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(90deg, var(--accent-red) 0%, #ff6b6b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.5px;
+}
+
+.header-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
 }
 
 .header-count {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-muted);
+    font-weight: 400;
 }
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: var(--spacing-lg);
 }
 
 .btn-settings {
@@ -111,19 +130,20 @@ body {
     background: var(--bg-hover);
 }
 
-/* === Barre de chemin === */
+/* === Barre de chemin Netflix === */
 .path-bar {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-xl);
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    padding: var(--spacing-sm) var(--spacing-3xl);
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     font-size: 12px;
 }
 
 .path-label {
     flex-shrink: 0;
+    opacity: 0.6;
 }
 
 .path-text {
@@ -132,40 +152,44 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
 }
 
 .btn-change-path {
     flex-shrink: 0;
     padding: var(--spacing-xs) var(--spacing-md);
-    background: var(--bg-hover);
+    background: transparent;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    font-size: 12px;
+    color: var(--text-muted);
+    font-size: 11px;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .btn-change-path:hover {
-    background: var(--border);
+    background: var(--bg-hover);
     color: var(--text-primary);
+    border-color: var(--border-hover);
 }
 
 .btn-primary {
     padding: var(--spacing-md) var(--spacing-xl);
-    background: var(--text-primary);
-    color: var(--bg-primary);
+    background: var(--accent-red);
+    color: white;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     margin-top: var(--spacing-lg);
 }
 
 .btn-primary:hover {
-    opacity: 0.9;
+    background: var(--accent-red-hover);
+    transform: scale(1.02);
 }
 
 .btn-back {
@@ -187,58 +211,94 @@ body {
     color: var(--text-primary);
 }
 
-/* === Grille Manga === */
+/* === Grille Manga Netflix === */
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: var(--spacing-lg);
-    padding: var(--spacing-xl);
+    grid-template-columns: repeat(auto-fill, minmax(160px, 180px));
+    gap: var(--spacing-xl);
+    padding: var(--spacing-2xl) var(--spacing-3xl);
     overflow-y: auto;
     flex: 1;
+    align-content: start;
 }
 
 .manga-card {
     background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border: none;
+    border-radius: var(--radius-md);
     overflow: hidden;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
 }
 
 .manga-card:hover {
-    border-color: var(--border-hover);
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transform: scale(1.08);
+    z-index: 5;
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.8),
+        0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.manga-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+            transparent 50%,
+            rgba(0, 0, 0, 0.9) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.manga-card:hover::after {
+    opacity: 1;
 }
 
 .manga-cover {
     width: 100%;
-    aspect-ratio: 3/4;
+    height: 220px;
     object-fit: cover;
-    background: var(--bg-secondary);
+    background: linear-gradient(135deg, var(--bg-hover) 0%, var(--bg-secondary) 100%);
+    display: block;
 }
 
 .manga-info {
     padding: var(--spacing-md);
+    background: linear-gradient(180deg, transparent 0%, var(--bg-card) 30%);
+    position: relative;
+    z-index: 1;
 }
 
 .manga-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-bottom: 2px;
 }
 
 .manga-chapters {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
-    margin-top: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
-/* === État vide === */
+.manga-chapters::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--accent-red);
+    border-radius: 50%;
+}
+
+/* === État vide Netflix === */
 .empty-state {
     display: none;
     flex-direction: column;
@@ -247,6 +307,7 @@ body {
     flex: 1;
     text-align: center;
     color: var(--text-muted);
+    padding: var(--spacing-3xl);
 }
 
 .empty-state.visible {
@@ -254,14 +315,23 @@ body {
 }
 
 .empty-icon {
-    font-size: 64px;
-    margin-bottom: var(--spacing-lg);
-    opacity: 0.5;
+    font-size: 80px;
+    margin-bottom: var(--spacing-xl);
+    opacity: 0.3;
+    filter: grayscale(50%);
 }
 
 .empty-state h2 {
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    font-size: 24px;
+    font-weight: 600;
     margin-bottom: var(--spacing-sm);
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin-bottom: var(--spacing-xl);
 }
 
 /* === Liste Chapitres === */
@@ -373,24 +443,25 @@ body {
     background: var(--border-hover);
 }
 
-/* === Bouton Télécharger === */
+/* === Bouton Télécharger Netflix === */
 .btn-download {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--accent-blue);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--accent-red);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     color: white;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 .btn-download:hover {
-    background: #2563eb;
+    background: var(--accent-red-hover);
+    transform: scale(1.02);
 }
 
 /* === Modal === */
